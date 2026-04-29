@@ -5,141 +5,384 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Server Monitor</title>
     <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --bg-tertiary: #1f1f1f;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --text-muted: #666666;
+            --accent: #ffffff;
+            --border: #333333;
+            --online: #4ade80;
+            --offline: #ef4444;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f0f23;
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             line-height: 1.6;
         }
         .header { 
-            background: #1a1a2e;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #252542;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 2rem;
         }
-        .header h1 { font-size: 1.5rem; color: #00d4aa; }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .header h1 { 
+            font-size: 1.5rem; 
+            font-weight: bold;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+        .nav-links a, .nav-links button {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover, .nav-links button:hover {
+            color: var(--text-primary);
+        }
         .container { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--accent);
+        }
         .nodes-grid { 
             display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
             gap: 1.5rem;
-            margin-top: 1.5rem;
         }
         .node-card {
-            background: #1a1a2e;
-            border-radius: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             padding: 1.5rem;
-            border: 1px solid #252542;
-            transition: border-color 0.2s;
+            transition: border-color 0.3s;
+            border-radius: 4px;
         }
-        .node-card:hover { border-color: #00d4aa; }
+        .node-card:hover { border-color: var(--text-muted); }
         .node-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
         }
-        .node-name { font-weight: 600; font-size: 1.1rem; }
+        .node-name { 
+            font-weight: bold; 
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
         .status {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
+            width: 8px;
+            height: 8px;
             display: inline-block;
+            margin-right: 0.5rem;
         }
-        .online { background: #00d4aa; }
-        .offline { background: #ff4757; }
+        .online { background: var(--online); }
+        .offline { background: var(--offline); }
+        .status-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
         .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
         .metric {
-            background: #252542;
-            padding: 0.75rem;
-            border-radius: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: 4px;
         }
-        .metric-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
-        .metric-value { font-size: 1.25rem; font-weight: 600; }
-        .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1rem 0; }
-        .chart-container { height: 100px; background: #252542; border-radius: 8px; position: relative; }
-        .chart-label { font-size: 0.7rem; color: #666; padding: 0.25rem 0.5rem; }
+        .metric-label { 
+            font-size: 0.7rem; 
+            color: var(--text-muted); 
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.25rem;
+        }
+        .metric-value { 
+            font-size: 1.5rem; 
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1rem 0; }
+        .chart-box {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .chart-label { 
+            font-size: 0.65rem; 
+            color: var(--text-muted); 
+            padding: 0.4rem 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border);
+        }
+        .chart-container { height: 80px; position: relative; }
         canvas { width: 100%; height: 100%; display: block; }
         .processes { margin-top: 1rem; }
-        .processes h4 { font-size: 0.8rem; color: #888; margin-bottom: 0.5rem; }
+        .processes h4 { 
+            font-size: 0.75rem; 
+            color: var(--text-secondary); 
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
         .process-list { font-size: 0.8rem; }
         .process-item {
             display: flex;
             justify-content: space-between;
-            padding: 0.25rem 0;
-            border-bottom: 1px solid #252542;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid var(--border);
         }
+        .process-item:last-child { border-bottom: none; }
         .empty-state {
             text-align: center;
             padding: 4rem;
-            color: #666;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            border-radius: 4px;
         }
         .settings-btn {
-            background: #252542;
-            border: none;
-            color: #fff;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.4rem 0.75rem;
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: inherit;
+            transition: all 0.3s;
+            border-radius: 4px;
         }
-        .settings-btn:hover { background: #00d4aa; }
+        .settings-btn:hover { 
+            border-color: var(--text-primary);
+            background: var(--bg-primary);
+        }
         .modal {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.9);
             justify-content: center;
             align-items: center;
             z-index: 100;
         }
         .modal.active { display: flex; }
         .modal-content {
-            background: #1a1a2e;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             padding: 2rem;
-            border-radius: 12px;
-            min-width: 300px;
+            min-width: 400px;
+            max-width: 90vw;
+            border-radius: 4px;
         }
-        .modal-content h3 { margin-bottom: 1rem; }
-        .form-group { margin-bottom: 1rem; }
-        .form-group label { display: block; margin-bottom: 0.25rem; font-size: 0.8rem; color: #888; }
+        .modal-content h3 { 
+            margin-bottom: 1.5rem; 
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 0.75rem;
+        }
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 0.5rem; 
+            font-size: 0.75rem; 
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
         .form-group input {
             width: 100%;
-            padding: 0.5rem;
-            background: #252542;
-            border: 1px solid #333;
-            color: #fff;
-            border-radius: 6px;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            border-radius: 4px;
         }
-        .btn-group { display: flex; gap: 0.5rem; justify-content: flex-end; }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--text-muted);
+        }
+        .form-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+        .btn-group { display: flex; gap: 0.75rem; justify-content: flex-end; }
         .btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 6px;
+            padding: 0.75rem 1.5rem;
+            border: 1px solid var(--border);
             cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            border-radius: 4px;
         }
-        .btn-primary { background: #00d4aa; color: #000; }
-        .btn-secondary { background: #252542; color: #fff; }
+        .btn-primary { 
+            background: var(--accent); 
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+        .btn-primary:hover {
+            background: var(--text-secondary);
+            border-color: var(--text-secondary);
+        }
+        .btn-secondary { 
+            background: transparent; 
+            color: var(--text-primary);
+        }
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--text-muted);
+        }
+        .server-form {
+            display: grid;
+            gap: 1rem;
+        }
+        .server-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        .server-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .server-item:last-child { border-bottom: none; }
+        .server-item button {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            border-radius: 3px;
+        }
+        .server-item button:hover {
+            color: var(--offline);
+            border-color: var(--offline);
+        }
+        @media (max-width: 768px) {
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .nav-links {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .nodes-grid {
+                grid-template-columns: 1fr;
+            }
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+            .modal-content {
+                min-width: auto;
+                width: 95vw;
+                padding: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>Server Monitor</h1>
+        <div class="header-top">
+            <h1>Server Monitor</h1>
+            <nav class="nav-links">
+                <a href="/" class="active">Dashboard</a>
+                <button onclick="openServerModal()">+ Add Server</button>
+                <a href="/logout" style="color: var(--text-muted);">Logout</a>
+            </nav>
+        </div>
     </div>
     <div class="container">
+        <h2 class="section-title">Monitored Nodes</h2>
         <div id="nodes-container" class="nodes-grid"></div>
     </div>
     
     <div id="settings-modal" class="modal">
         <div class="modal-content">
-            <h3>Настройки ноды</h3>
+            <h3>Node Settings</h3>
             <div class="form-group">
-                <label>Частота опроса (сек)</label>
+                <label>Poll Interval (seconds)</label>
                 <input type="number" id="poll-interval" min="1" max="300" value="5">
             </div>
             <div class="btn-group">
-                <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
-                <button class="btn btn-primary" onclick="saveSettings()">Сохранить</button>
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="server-modal" class="modal">
+        <div class="modal-content">
+            <h3>External Servers</h3>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">Connect to remote monitor instances via TLS (IPv4 supported)</p>
+            <div class="server-list" id="server-list"></div>
+            <h3 style="margin-top: 1.5rem; margin-bottom: 1rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Add New Server</h3>
+            <div class="server-form">
+                <div class="form-group">
+                    <label>Server Address</label>
+                    <input type="text" id="server-url" placeholder="192.168.1.100:5000 or server.example.com:5000">
+                    <div class="form-hint">Enter IPv4 address or hostname with port. TLS encryption enabled by default.</div>
+                </div>
+                <div class="form-group">
+                    <label>JWT Secret</label>
+                    <input type="password" id="server-secret" placeholder="shared authentication secret">
+                    <div class="form-hint">Must match the JWT_SECRET on the remote server.</div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="closeServerModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="addServer()">Add Server</button>
+                </div>
             </div>
         </div>
     </div>
@@ -148,6 +391,7 @@
         let nodes = {};
         let history = {};
         let currentNode = null;
+        let servers = JSON.parse(localStorage.getItem('servers') || '[]');
 
         async function fetchNodes() {
             const res = await fetch('/api/nodes');
@@ -178,7 +422,7 @@
         function renderNodes() {
             const container = document.getElementById('nodes-container');
             if (Object.keys(nodes).length === 0) {
-                container.innerHTML = '<div class="empty-state">Ожидание подключения нод...</div>';
+                container.innerHTML = '<div class="empty-state">No nodes connected. Add a server to begin monitoring.</div>';
                 return;
             }
             
@@ -191,29 +435,32 @@
                     <div class="node-card">
                         <div class="node-header">
                             <span class="node-name">${id}</span>
-                            <span>
-                                <span class="status ${isOnline ? 'online' : 'offline'}"></span>
-                                <button class="settings-btn" onclick="openSettings('${id}')">⚙</button>
+                            <span style="display: flex; align-items: center; gap: 0.75rem;">
+                                <span class="status-text">
+                                    <span class="status ${isOnline ? 'online' : 'offline'}"></span>
+                                    ${isOnline ? 'online' : 'offline'}
+                                </span>
+                                <button class="settings-btn" onclick="openSettings('${id}')">Settings</button>
                             </span>
                         </div>
                         <div class="metrics">
                             <div class="metric">
-                                <div class="metric-label">CPU</div>
+                                <div class="metric-label">CPU Usage</div>
                                 <div class="metric-value">${(details.info?.cpu_percent || 0).toFixed(1)}%</div>
                             </div>
                             <div class="metric">
-                                <div class="metric-label">RAM</div>
+                                <div class="metric-label">Memory</div>
                                 <div class="metric-value">${(details.info?.memory_percent || 0).toFixed(1)}%</div>
                             </div>
                         </div>
                         <div class="chart-row">
-                            <div>
+                            <div class="chart-box">
                                 <div class="chart-label">CPU %</div>
                                 <div class="chart-container">
                                     <canvas id="chart-cpu-${id}"></canvas>
                                 </div>
                             </div>
-                            <div>
+                            <div class="chart-box">
                                 <div class="chart-label">Network KB/s</div>
                                 <div class="chart-container">
                                     <canvas id="chart-net-${id}"></canvas>
@@ -221,11 +468,11 @@
                             </div>
                         </div>
                         <div class="processes">
-                            <h4>Топ процессов по CPU</h4>
+                            <h4>Top Processes by CPU</h4>
                             <div class="process-list">
                                 ${(details.top_processes || []).slice(0, 5).map(p => `
                                     <div class="process-item">
-                                        <span>${p.name}</span>
+                                        <span style="color: var(--text-secondary);">${p.name}</span>
                                         <span>${p.cpu_percent?.toFixed(1)}%</span>
                                     </div>
                                 `).join('')}
@@ -235,10 +482,12 @@
                 `;
             }).join('');
             
-            Object.keys(nodes).forEach(id => {
-                drawChart(id, 'cpu', '#00d4aa');
-                drawChart(id, 'net', '#3498db', true);
-            });
+            setTimeout(() => {
+                Object.keys(nodes).forEach(id => {
+                    drawChart(id, 'cpu', '#ffffff');
+                    drawChart(id, 'net', '#b0b0b0', true);
+                });
+            }, 0);
         }
 
         function drawChart(nodeId, type, color, isNetwork = false) {
@@ -246,7 +495,7 @@
             if (!canvas) return;
             
             const ctx = canvas.getContext('2d');
-            const rect = canvas.getBoundingClientRect();
+            const rect = canvas.parentElement.getBoundingClientRect();
             canvas.width = rect.width;
             canvas.height = rect.height;
             
@@ -255,7 +504,7 @@
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            const padding = 8;
+            const padding = 4;
             const w = canvas.width - padding * 2;
             const h = canvas.height - padding * 2;
             
@@ -271,7 +520,7 @@
             const range = max - min || 1;
             
             ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             
             data.forEach((point, i) => {
@@ -283,19 +532,6 @@
             });
             
             ctx.stroke();
-            
-            ctx.fillStyle = color + '1a';
-            ctx.beginPath();
-            ctx.moveTo(padding, padding + h);
-            data.forEach((point, i) => {
-                const x = padding + (i / (data.length - 1)) * w;
-                let v = isNetwork ? (point.sent + point.recv) / 1024 : point.v;
-                const y = padding + h - ((v - min) / range) * h;
-                ctx.lineTo(x, y);
-            });
-            ctx.lineTo(padding + w, padding + h);
-            ctx.closePath();
-            ctx.fill();
         }
 
         function openSettings(nodeId) {
@@ -321,6 +557,51 @@
             closeModal();
         }
 
+        function openServerModal() {
+            renderServerList();
+            document.getElementById('server-modal').classList.add('active');
+        }
+
+        function closeServerModal() {
+            document.getElementById('server-modal').classList.remove('active');
+            document.getElementById('server-url').value = '';
+            document.getElementById('server-secret').value = '';
+        }
+
+        function renderServerList() {
+            const list = document.getElementById('server-list');
+            if (servers.length === 0) {
+                list.innerHTML = '<div class="server-item" style="color: var(--text-muted);">No external servers configured</div>';
+                return;
+            }
+            list.innerHTML = servers.map((s, i) => `
+                <div class="server-item">
+                    <span>${s.url}</span>
+                    <button onclick="removeServer(${i})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function addServer() {
+            const url = document.getElementById('server-url').value.trim();
+            const secret = document.getElementById('server-secret').value.trim();
+            if (!url || !secret) {
+                alert('Please enter both URL and secret');
+                return;
+            }
+            servers.push({ url, secret });
+            localStorage.setItem('servers', JSON.stringify(servers));
+            renderServerList();
+            document.getElementById('server-url').value = '';
+            document.getElementById('server-secret').value = '';
+        }
+
+        function removeServer(index) {
+            servers.splice(index, 1);
+            localStorage.setItem('servers', JSON.stringify(servers));
+            renderServerList();
+        }
+
         async function update() {
             await fetchNodes();
             for (const id of Object.keys(nodes)) {
@@ -330,6 +611,13 @@
             }
             renderNodes();
         }
+
+        window.addEventListener('resize', () => {
+            Object.keys(nodes).forEach(id => {
+                drawChart(id, 'cpu', '#ffffff');
+                drawChart(id, 'net', '#b0b0b0', true);
+            });
+        });
 
         setInterval(update, 2000);
         update();

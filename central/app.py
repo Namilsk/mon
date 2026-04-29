@@ -6,15 +6,17 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from functools import wraps
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from flask_sock import Sock
 import jwt
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(32))
 sock = Sock(app)
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'dev-secret-change-me')
-DATA_DIR = '/app/data'
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin')
+DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(__file__), 'data'))
 os.makedirs(DATA_DIR, exist_ok=True)
 
 nodes_data = {}
@@ -47,11 +49,38 @@ def load_data():
     except:
         nodes_data = {}
 
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('authenticated'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        if username == 'admin' and password == ADMIN_PASSWORD:
+            session['authenticated'] = True
+            session['username'] = username
+            return redirect(url_for('dashboard'))
+        return render_template('login.html', error='Invalid credentials')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def dashboard():
     return render_template('dashboard.html')
 
 @app.route('/api/nodes')
+@login_required
 def get_nodes():
     active_nodes = {}
     now = time.time()
@@ -65,18 +94,20 @@ def get_nodes():
     return jsonify(active_nodes)
 
 @app.route('/api/nodes/<node_id>')
+@login_required
 def get_node(node_id):
     if node_id not in nodes_data:
         return jsonify({'error': 'Node not found'}), 404
-    history = nodes_history.get(node_id, {'cpu': [], 'network': []})
+    history = nodes_history.get(node_id, {})
     return jsonify({
         'info': nodes_data.get(node_id, {}),
-        'cpu_history': history['cpu'][-100:],
-        'network_history': history['network'][-100:],
-        'top_processes': history['processes'][-1] if history['processes'] else []
+        'cpu_history': history.get('cpu', [])[-100:],
+        'network_history': history.get('network', [])[-100:],
+        'top_processes': history.get('processes', [])[-1] if history.get('processes') else []
     })
 
 @app.route('/api/nodes/<node_id>/config', methods=['POST'])
+@login_required
 def update_config(node_id):
     if node_id not in nodes_data:
         return jsonify({'error': 'Node not found'}), 404
