@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  central:
+    build: ./central
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./central/certs:/app/certs:ro
+      - ./central/data:/app/data
+    environment:
+      - FLASK_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    networks:
+      - monitor-net
+
+  node-agent:
+    build: ./node
+    volumes:
+      - ./node/certs:/app/certs:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - CENTRAL_URL=https://central:5000
+      - NODE_ID=${NODE_ID:-node-1}
+      - POLL_INTERVAL=${POLL_INTERVAL:-5}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    networks:
+      - monitor-net
+    depends_on:
+      - central
+    privileged: true
+
+networks:
+  monitor-net:
+    driver: bridge

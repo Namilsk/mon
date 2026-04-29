@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f23;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        .header { 
+            background: #1a1a2e;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #252542;
+        }
+        .header h1 { font-size: 1.5rem; color: #00d4aa; }
+        .container { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        .nodes-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .node-card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #252542;
+            transition: border-color 0.2s;
+        }
+        .node-card:hover { border-color: #00d4aa; }
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .node-name { font-weight: 600; font-size: 1.1rem; }
+        .status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .online { background: #00d4aa; }
+        .offline { background: #ff4757; }
+        .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+        .metric {
+            background: #252542;
+            padding: 0.75rem;
+            border-radius: 8px;
+        }
+        .metric-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
+        .metric-value { font-size: 1.25rem; font-weight: 600; }
+        .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1rem 0; }
+        .chart-container { height: 100px; background: #252542; border-radius: 8px; position: relative; }
+        .chart-label { font-size: 0.7rem; color: #666; padding: 0.25rem 0.5rem; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .processes { margin-top: 1rem; }
+        .processes h4 { font-size: 0.8rem; color: #888; margin-bottom: 0.5rem; }
+        .process-list { font-size: 0.8rem; }
+        .process-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #252542;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: #666;
+        }
+        .settings-btn {
+            background: #252542;
+            border: none;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .settings-btn:hover { background: #00d4aa; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #1a1a2e;
+            padding: 2rem;
+            border-radius: 12px;
+            min-width: 300px;
+        }
+        .modal-content h3 { margin-bottom: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.25rem; font-size: 0.8rem; color: #888; }
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem;
+            background: #252542;
+            border: 1px solid #333;
+            color: #fff;
+            border-radius: 6px;
+        }
+        .btn-group { display: flex; gap: 0.5rem; justify-content: flex-end; }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-primary { background: #00d4aa; color: #000; }
+        .btn-secondary { background: #252542; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Server Monitor</h1>
+    </div>
+    <div class="container">
+        <div id="nodes-container" class="nodes-grid"></div>
+    </div>
+    
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h3>Настройки ноды</h3>
+            <div class="form-group">
+                <label>Частота опроса (сек)</label>
+                <input type="number" id="poll-interval" min="1" max="300" value="5">
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="saveSettings()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let nodes = {};
+        let history = {};
+        let currentNode = null;
+
+        async function fetchNodes() {
+            const res = await fetch('/api/nodes');
+            const data = await res.json();
+            
+            for (const [id, info] of Object.entries(data)) {
+                if (!nodes[id]) nodes[id] = { history: { cpu: [], net: [] } };
+                nodes[id].info = info;
+            }
+            
+            for (const id of Object.keys(nodes)) {
+                if (!data[id]) delete nodes[id];
+            }
+            
+            renderNodes();
+        }
+
+        async function fetchNodeDetails(id) {
+            const res = await fetch(`/api/nodes/${id}`);
+            const data = await res.json();
+            if (nodes[id]) {
+                nodes[id].details = data;
+                nodes[id].history.cpu = data.cpu_history || [];
+                nodes[id].history.net = data.network_history || [];
+            }
+        }
+
+        function renderNodes() {
+            const container = document.getElementById('nodes-container');
+            if (Object.keys(nodes).length === 0) {
+                container.innerHTML = '<div class="empty-state">Ожидание подключения нод...</div>';
+                return;
+            }
+            
+            container.innerHTML = Object.entries(nodes).map(([id, node]) => {
+                const info = node.info || {};
+                const details = node.details || {};
+                const isOnline = info.online;
+                
+                return `
+                    <div class="node-card">
+                        <div class="node-header">
+                            <span class="node-name">${id}</span>
+                            <span>
+                                <span class="status ${isOnline ? 'online' : 'offline'}"></span>
+                                <button class="settings-btn" onclick="openSettings('${id}')">⚙</button>
+                            </span>
+                        </div>
+                        <div class="metrics">
+                            <div class="metric">
+                                <div class="metric-label">CPU</div>
+                                <div class="metric-value">${(details.info?.cpu_percent || 0).toFixed(1)}%</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">RAM</div>
+                                <div class="metric-value">${(details.info?.memory_percent || 0).toFixed(1)}%</div>
+                            </div>
+                        </div>
+                        <div class="chart-row">
+                            <div>
+                                <div class="chart-label">CPU %</div>
+                                <div class="chart-container">
+                                    <canvas id="chart-cpu-${id}"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="chart-label">Network KB/s</div>
+                                <div class="chart-container">
+                                    <canvas id="chart-net-${id}"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="processes">
+                            <h4>Топ процессов по CPU</h4>
+                            <div class="process-list">
+                                ${(details.top_processes || []).slice(0, 5).map(p => `
+                                    <div class="process-item">
+                                        <span>${p.name}</span>
+                                        <span>${p.cpu_percent?.toFixed(1)}%</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            Object.keys(nodes).forEach(id => {
+                drawChart(id, 'cpu', '#00d4aa');
+                drawChart(id, 'net', '#3498db', true);
+            });
+        }
+
+        function drawChart(nodeId, type, color, isNetwork = false) {
+            const canvas = document.getElementById(`chart-${type}-${nodeId}`);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            const data = nodes[nodeId]?.history?.[type] || [];
+            if (data.length < 2) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const padding = 8;
+            const w = canvas.width - padding * 2;
+            const h = canvas.height - padding * 2;
+            
+            let values;
+            if (isNetwork) {
+                values = data.map(d => (d.sent + d.recv) / 1024);
+            } else {
+                values = data.map(d => d.v);
+            }
+            
+            const min = Math.min(...values, 0);
+            const max = Math.max(...values, isNetwork ? 100 : 100);
+            const range = max - min || 1;
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            data.forEach((point, i) => {
+                const x = padding + (i / (data.length - 1)) * w;
+                let v = isNetwork ? (point.sent + point.recv) / 1024 : point.v;
+                const y = padding + h - ((v - min) / range) * h;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+            
+            ctx.fillStyle = color + '1a';
+            ctx.beginPath();
+            ctx.moveTo(padding, padding + h);
+            data.forEach((point, i) => {
+                const x = padding + (i / (data.length - 1)) * w;
+                let v = isNetwork ? (point.sent + point.recv) / 1024 : point.v;
+                const y = padding + h - ((v - min) / range) * h;
+                ctx.lineTo(x, y);
+            });
+            ctx.lineTo(padding + w, padding + h);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function openSettings(nodeId) {
+            currentNode = nodeId;
+            const interval = nodes[nodeId]?.info?.poll_interval || 5;
+            document.getElementById('poll-interval').value = interval;
+            document.getElementById('settings-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('settings-modal').classList.remove('active');
+            currentNode = null;
+        }
+
+        async function saveSettings() {
+            if (!currentNode) return;
+            const interval = parseInt(document.getElementById('poll-interval').value);
+            await fetch(`/api/nodes/${currentNode}/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ poll_interval: interval })
+            });
+            closeModal();
+        }
+
+        async function update() {
+            await fetchNodes();
+            for (const id of Object.keys(nodes)) {
+                if (nodes[id]?.info?.online) {
+                    await fetchNodeDetails(id);
+                }
+            }
+            renderNodes();
+        }
+
+        setInterval(update, 2000);
+        update();
+    </script>
+</body>
+</html>

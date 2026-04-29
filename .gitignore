@@ -1,0 +1,29 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+.env
+.DS_Store
+*.swp
+*.swo
+*~
+.coverage
+.pytest_cache/
+.mypy_cache/
+
+# Certs (generate your own)
+# */certs/*.crt
+# */certs/*.key
+
+# Data
+central/data/
+*.db
+*.sqlite3
