@@ -15,7 +15,11 @@ POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', '5'))
 config = {'poll_interval': POLL_INTERVAL}
 
 def generate_token():
-    return jwt.encode({'node': NODE_ID, 'exp': time.time() + 60}, JWT_SECRET, algorithm='HS256')
+    token = jwt.encode({'node': NODE_ID, 'exp': time.time() + 60}, JWT_SECRET, algorithm='HS256')
+    return token
+
+def get_secret_preview():
+    return f"{JWT_SECRET[:8]}..." if len(JWT_SECRET) > 8 else "<empty>"
 
 def get_top_processes(n=10):
     processes = []
@@ -58,7 +62,8 @@ def collect_metrics():
 def send_metrics():
     try:
         data = collect_metrics()
-        headers = {'Authorization': f'Bearer {generate_token()}'}
+        token = generate_token()
+        headers = {'Authorization': f'Bearer {token}'}
         resp = requests.post(
             f'{CENTRAL_URL}/api/metrics',
             json=data,
@@ -69,14 +74,23 @@ def send_metrics():
             new_config = resp.json().get('config', {})
             if new_config:
                 config.update(new_config)
+            print(f'[{NODE_ID}] Metrics sent OK')
+        elif resp.status_code == 401:
+            print(f'[{NODE_ID}] 401 Unauthorized - JWT_SECRET mismatch? (secret: {get_secret_preview()})')
+        else:
+            print(f'[{NODE_ID}] HTTP {resp.status_code}')
         return resp.status_code == 200
     except Exception as e:
-        print(f'Failed to send metrics: {e}')
+        print(f'[{NODE_ID}] Failed to send metrics: {e}')
         return False
 
 def main():
-    print(f'Starting agent {NODE_ID}')
+    print(f'=' * 50)
+    print(f'Starting agent: {NODE_ID}')
     print(f'Central server: {CENTRAL_URL}')
+    print(f'JWT_SECRET: {get_secret_preview()}')
+    print(f'Poll interval: {POLL_INTERVAL}s')
+    print(f'=' * 50)
     
     while True:
         send_metrics()

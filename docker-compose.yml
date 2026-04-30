@@ -6,24 +6,23 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./central/certs:/app/certs:ro
       - ./central/data:/app/data
     environment:
-      - FLASK_ENV=production
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+    restart: unless-stopped
     networks:
       - monitor-net
 
+  # Local node agent using Docker Hub image
   node-agent:
-    build: ./node
+    image: namilsk/monitor:latest
     volumes:
-      - ./node/certs:/app/certs:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - CENTRAL_URL=https://central:5000
-      - NODE_ID=${NODE_ID:-node-1}
+      - CENTRAL_URL=http://central:5000
+      - NODE_ID=${NODE_ID:-local-node}
       - POLL_INTERVAL=${POLL_INTERVAL:-5}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
     networks:
@@ -31,6 +30,7 @@ services:
     depends_on:
       - central
     privileged: true
+    restart: unless-stopped
 
 networks:
   monitor-net:

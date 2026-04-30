@@ -10,6 +10,11 @@ from flask import Flask, jsonify, request, render_template, session, redirect, u
 from flask_sock import Sock
 import jwt
 
+# Debug logging
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(32))
 sock = Sock(app)
@@ -27,12 +32,22 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('Authorization')
+        client_ip = request.remote_addr
         if not token:
+            logger.warning(f"401 from {client_ip}: Token missing")
             return jsonify({'error': 'Token missing'}), 401
         try:
             token = token.replace('Bearer ', '')
             jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-        except:
+            logger.info(f"200 from {client_ip}: Valid token")
+        except jwt.InvalidSignatureError:
+            logger.error(f"401 from {client_ip}: Invalid signature - check JWT_SECRET matches")
+            return jsonify({'error': 'Invalid token signature'}), 401
+        except jwt.ExpiredSignatureError:
+            logger.warning(f"401 from {client_ip}: Token expired")
+            return jsonify({'error': 'Token expired'}), 401
+        except Exception as e:
+            logger.error(f"401 from {client_ip}: {str(e)}")
             return jsonify({'error': 'Invalid token'}), 401
         return f(*args, **kwargs)
     return decorated
@@ -174,4 +189,7 @@ def websocket(ws):
 
 if __name__ == '__main__':
     load_data()
+    logger.info(f"Starting Server Monitor")
+    logger.info(f"JWT_SECRET (first 8 chars): {JWT_SECRET[:8]}...")
+    logger.info(f"Data directory: {DATA_DIR}")
     app.run(host='0.0.0.0', port=5000, debug=False)
