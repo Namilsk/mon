@@ -338,6 +338,9 @@
             <h1>Server Monitor</h1>
             <nav class="nav-links">
                 <a href="/" class="active">Dashboard</a>
+                {% if session.get('is_admin') %}
+                <a href="/admin">Admin</a>
+                {% endif %}
                 <button onclick="openServerModal()">+ Add Server</button>
                 <a href="/logout" style="color: var(--text-muted);">Logout</a>
             </nav>
