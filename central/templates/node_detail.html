@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Monitor - Node Detail</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --bg-tertiary: #1f1f1f;
+            --bg-card: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --text-muted: #666666;
+            --accent: #ffffff;
+            --border: #333333;
+            --online: #4ade80;
+            --offline: #ef4444;
+            --warning: #f59e0b;
+            --critical: #ef4444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        .header { 
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 2rem;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .header h1 { 
+            font-size: 1.5rem; 
+            font-weight: bold;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--text-primary); }
+        .container { padding: 2rem; max-width: 1600px; margin: 0 auto; }
+        
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+        .node-title h2 {
+            font-size: 2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+        .node-meta {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid var(--border);
+        }
+        .status-badge.online {
+            border-color: var(--online);
+            color: var(--online);
+        }
+        .status-badge.offline {
+            border-color: var(--offline);
+            color: var(--offline);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-header h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+        .card-body { padding: 1.5rem; }
+        
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+        .metric-item {
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+        }
+        .metric-bar {
+            height: 4px;
+            background: var(--bg-tertiary);
+            margin-top: 0.75rem;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .metric-bar-fill {
+            height: 100%;
+            background: var(--online);
+            transition: width 0.3s;
+        }
+        .metric-bar-fill.warning { background: var(--warning); }
+        .metric-bar-fill.critical { background: var(--critical); }
+
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+        .chart-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .info-item:last-child { border-bottom: none; }
+        .info-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .info-value {
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+
+        .process-list { font-size: 0.85rem; }
+        .process-item {
+            display: grid;
+            grid-template-columns: 60px 2fr 1fr 1fr 1fr;
+            gap: 1rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+        }
+        .process-item:last-child { border-bottom: none; }
+        .process-item.header {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding-bottom: 0.5rem;
+        }
+        .process-pid { color: var(--text-muted); font-family: monospace; }
+        .process-name { font-weight: 500; }
+        .process-cpu { text-align: right; }
+        .process-mem { text-align: right; }
+        .process-user { color: var(--text-muted); text-align: right; }
+
+        .alerts-list { font-size: 0.85rem; }
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .alert-item:last-child { border-bottom: none; }
+        .alert-item.resolved { opacity: 0.5; }
+        .alert-info { flex: 1; }
+        .alert-type {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        .alert-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .alert-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .alert-badge.warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+        .alert-badge.critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--critical);
+        }
+
+        .config-form .form-group {
+            margin-bottom: 1rem;
+        }
+        .config-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .config-form input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: inherit;
+            border-radius: 4px;
+        }
+        .config-form input:focus {
+            outline: none;
+            border-color: var(--text-muted);
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        .btn:hover {
+            border-color: var(--text-primary);
+            background: var(--bg-primary);
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+        .btn-primary:hover {
+            background: var(--text-secondary);
+            border-color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 1200px) {
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .grid-3 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .metric-grid { grid-template-columns: 1fr; }
+            .info-grid { grid-template-columns: 1fr; }
+            .process-item {
+                grid-template-columns: 50px 1fr 80px;
+            }
+            .process-mem, .process-user { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-top">
+            <h1>Server Monitor</h1>
+            <nav class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/logout">Logout</a>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="node-header">
+            <div class="node-title">
+                <h2 id="node-id">{{ node_id }}</h2>
+                <div class="node-meta">
+                    <span id="node-hostname">Loading...</span> • 
+                    <span id="node-platform">Unknown</span>
+                </div>
+            </div>
+            <div class="status-badge offline" id="node-status">
+                <span class="status-dot"></span>
+                <span>Offline</span>
+            </div>
+        </div>
+
+        <div class="grid grid-4" style="margin-bottom: 1.5rem;">
+            <div class="card">
+                <div class="card-header"><h3>CPU Usage</h3></div>
+                <div class="card-body">
+                    <div class="metric-item">
+                        <div class="metric-value" id="cpu-value">--</div>
+                        <div class="metric-label">Percent</div>
+                        <div class="metric-bar">
+                            <div class="metric-bar-fill" id="cpu-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Memory</h3></div>
+                <div class="card-body">
+                    <div class="metric-item">
+                        <div class="metric-value" id="mem-value">--</div>
+                        <div class="metric-label" id="mem-label">-- / -- GB</div>
+                        <div class="metric-bar">
+                            <div class="metric-bar-fill" id="mem-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Disk</h3></div>
+                <div class="card-body">
+                    <div class="metric-item">
+                        <div class="metric-value" id="disk-value">--</div>
+                        <div class="metric-label" id="disk-label">-- / -- GB</div>
+                        <div class="metric-bar">
+                            <div class="metric-bar-fill" id="disk-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Load Average</h3></div>
+                <div class="card-body">
+                    <div class="metric-grid">
+                        <div class="metric-item">
+                            <div class="metric-value" style="font-size: 1.5rem;" id="load-1">--</div>
+                            <div class="metric-label">1 min</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-value" style="font-size: 1.5rem;" id="load-5">--</div>
+                            <div class="metric-label">5 min</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom: 1.5rem;">
+            <div class="card">
+                <div class="card-header"><h3>CPU History (24h)</h3></div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="cpu-chart" class="chart-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Memory History (24h)</h3></div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="mem-chart" class="chart-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-header"><h3>System Information</h3></div>
+                <div class="card-body">
+                    <div class="info-grid" id="system-info">
+                        <div class="info-item">
+                            <span class="info-label">Hostname</span>
+                            <span class="info-value" id="info-hostname">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Platform</span>
+                            <span class="info-value" id="info-platform">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">IP Address</span>
+                            <span class="info-value" id="info-ip">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Poll Interval</span>
+                            <span class="info-value" id="info-poll">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Last Seen</span>
+                            <span class="info-value" id="info-last">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Uptime</span>
+                            <span class="info-value" id="info-uptime">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Alert Configuration</h3>
+                </div>
+                <div class="card-body">
+                    <form class="config-form" id="alert-config">
+                        <div class="form-group">
+                            <label>CPU Threshold (%)</label>
+                            <input type="number" id="cpu-threshold" min="1" max="100" value="80">
+                        </div>
+                        <div class="form-group">
+                            <label>Memory Threshold (%)</label>
+                            <input type="number" id="mem-threshold" min="1" max="100" value="85">
+                        </div>
+                        <div class="form-group">
+                            <label>Disk Threshold (%)</label>
+                            <input type="number" id="disk-threshold" min="1" max="100" value="90">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top: 1.5rem;">
+            <div class="card">
+                <div class="card-header"><h3>Active Alerts</h3></div>
+                <div class="card-body">
+                    <div class="alerts-list" id="alerts-list">
+                        <div class="empty-state">No active alerts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top: 1.5rem;">
+            <div class="card">
+                <div class="card-header"><h3>Top Processes</h3></div>
+                <div class="card-body">
+                    <div class="process-list" id="process-list">
+                        <div class="empty-state">Loading processes...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nodeId = '{{ node_id }}';
+        let historyData = [];
+
+        async function fetchData() {
+            try {
+                const res = await fetch(`/api/nodes/${nodeId}`);
+                const data = await res.json();
+                updateUI(data);
+            } catch (e) {
+                console.error('Failed to fetch:', e);
+            }
+        }
+
+        function updateUI(data) {
+            const info = data.info || {};
+            const current = data.current;
+            const history = data.history || [];
+            const processes = data.processes || [];
+            const alerts = data.alerts || [];
+            
+            historyData = history;
+            
+            // Update header
+            document.getElementById('node-hostname').textContent = info.hostname || nodeId;
+            document.getElementById('node-platform').textContent = info.platform || 'Unknown';
+            
+            const statusBadge = document.getElementById('node-status');
+            const isOnline = info.online;
+            statusBadge.className = `status-badge ${isOnline ? 'online' : 'offline'}`;
+            statusBadge.innerHTML = `
+                <span class="status-dot"></span>
+                <span>${isOnline ? 'Online' : 'Offline'}</span>
+            `;
+            
+            // Update metrics
+            if (current) {
+                document.getElementById('cpu-value').textContent = (current.cpu_percent || 0).toFixed(1) + '%';
+                document.getElementById('cpu-bar').style.width = (current.cpu_percent || 0) + '%';
+                updateBarColor('cpu-bar', current.cpu_percent);
+                
+                document.getElementById('mem-value').textContent = (current.memory_percent || 0).toFixed(1) + '%';
+                const memUsed = (current.memory_used_mb / 1024).toFixed(1);
+                const memTotal = (current.memory_total_mb / 1024).toFixed(1);
+                document.getElementById('mem-label').textContent = `${memUsed} / ${memTotal} GB`;
+                document.getElementById('mem-bar').style.width = (current.memory_percent || 0) + '%';
+                updateBarColor('mem-bar', current.memory_percent);
+                
+                document.getElementById('disk-value').textContent = (current.disk_percent || 0).toFixed(1) + '%';
+                const diskUsed = (current.disk_used_gb || 0).toFixed(1);
+                const diskTotal = (current.disk_total_gb || 0).toFixed(1);
+                document.getElementById('disk-label').textContent = `${diskUsed} / ${diskTotal} GB`;
+                document.getElementById('disk-bar').style.width = (current.disk_percent || 0) + '%';
+                updateBarColor('disk-bar', current.disk_percent);
+                
+                document.getElementById('load-1').textContent = (current.load_avg_1 || 0).toFixed(2);
+                document.getElementById('load-5').textContent = (current.load_avg_5 || 0).toFixed(2);
+            }
+            
+            // Update system info
+            document.getElementById('info-hostname').textContent = info.hostname || '--';
+            document.getElementById('info-platform').textContent = info.platform || '--';
+            document.getElementById('info-ip').textContent = info.ip_address || '--';
+            document.getElementById('info-poll').textContent = info.poll_interval ? `${info.poll_interval}s` : '--';
+            document.getElementById('info-last').textContent = info.last_seen ? 
+                new Date(info.last_seen).toLocaleString() : '--';
+            
+            // Calculate uptime
+            if (current && current.boot_time) {
+                const bootTime = new Date(current.boot_time);
+                const uptime = Math.floor((Date.now() - bootTime.getTime()) / 1000);
+                document.getElementById('info-uptime').textContent = formatUptime(uptime);
+            }
+            
+            // Update charts
+            drawChart('cpu-chart', history, 'cpu_percent', '#4ade80');
+            drawChart('mem-chart', history, 'memory_percent', '#60a5fa');
+            
+            // Update processes
+            updateProcesses(processes);
+            
+            // Update alerts
+            updateAlerts(alerts);
+        }
+
+        function updateBarColor(id, value) {
+            const bar = document.getElementById(id);
+            bar.className = 'metric-bar-fill';
+            if (value > 90) bar.classList.add('critical');
+            else if (value > 70) bar.classList.add('warning');
+        }
+
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            if (days > 0) return `${days}d ${hours}h ${mins}m`;
+            if (hours > 0) return `${hours}h ${mins}m`;
+            return `${mins}m`;
+        }
+
+        function drawChart(canvasId, data, field, color) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || data.length < 2) return;
+            
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const padding = 20;
+            const w = canvas.width - padding * 2;
+            const h = canvas.height - padding * 2;
+            
+            const values = data.map(d => d[field] || 0);
+            const max = Math.max(...values, 100);
+            
+            // Draw grid
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (i / 4) * h;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + w, y);
+                ctx.stroke();
+            }
+            
+            // Draw line
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            data.forEach((point, i) => {
+                const x = padding + (i / (data.length - 1)) * w;
+                const v = point[field] || 0;
+                const y = padding + h - (v / max) * h;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+            
+            // Draw area
+            ctx.fillStyle = color + '20';
+            ctx.beginPath();
+            ctx.moveTo(padding, padding + h);
+            data.forEach((point, i) => {
+                const x = padding + (i / (data.length - 1)) * w;
+                const v = point[field] || 0;
+                const y = padding + h - (v / max) * h;
+                ctx.lineTo(x, y);
+            });
+            ctx.lineTo(padding + w, padding + h);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function updateProcesses(processes) {
+            const container = document.getElementById('process-list');
+            if (processes.length === 0) {
+                container.innerHTML = '<div class="empty-state">No process data available</div>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <div class="process-item header">
+                    <span>PID</span>
+                    <span>Name</span>
+                    <span class="process-cpu">CPU %</span>
+                    <span class="process-mem">Mem %</span>
+                    <span class="process-user">User</span>
+                </div>
+                ${processes.map(p => `
+                    <div class="process-item">
+                        <span class="process-pid">${p.pid}</span>
+                        <span class="process-name">${p.name}</span>
+                        <span class="process-cpu">${(p.cpu_percent || 0).toFixed(1)}%</span>
+                        <span class="process-mem">${(p.memory_percent || 0).toFixed(1)}%</span>
+                        <span class="process-user">${p.username || '-'}</span>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function updateAlerts(alerts) {
+            const container = document.getElementById('alerts-list');
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="empty-state">No active alerts</div>';
+                return;
+            }
+            
+            container.innerHTML = alerts.map(a => `
+                <div class="alert-item">
+                    <div class="alert-info">
+                        <div class="alert-type">${a.alert_type.toUpperCase()} Alert</div>
+                        <div class="alert-time">${new Date(a.created_at).toLocaleString()}</div>
+                    </div>
+                    <span class="alert-badge ${a.severity}">${a.severity}</span>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('alert-config').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const config = {
+                cpu_threshold: parseFloat(document.getElementById('cpu-threshold').value),
+                memory_threshold: parseFloat(document.getElementById('mem-threshold').value),
+                disk_threshold: parseFloat(document.getElementById('disk-threshold').value),
+                enabled: true
+            };
+            
+            try {
+                const res = await fetch(`/api/nodes/${nodeId}/alerts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                if (res.ok) {
+                    alert('Settings saved');
+                }
+            } catch (e) {
+                console.error('Failed to save config:', e);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (historyData.length > 0) {
+                drawChart('cpu-chart', historyData, 'cpu_percent', '#4ade80');
+                drawChart('mem-chart', historyData, 'memory_percent', '#60a5fa');
+            }
+        });
+
+        // Initial load and refresh
+        fetchData();
+        setInterval(fetchData, 2000);
+    </script>
+</body>
+</html>

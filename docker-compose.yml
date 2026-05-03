@@ -17,14 +17,19 @@ services:
   # Local node agent using Docker Hub image
   node-agent:
     image: namilsk/monitor:latest
+    # Use host PID namespace to see all host processes
+    pid: host
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
     environment:
       - CENTRAL_URL=http://central:5000
       - NODE_ID=${NODE_ID:-local-node}
       - POLL_INTERVAL=${POLL_INTERVAL:-5}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - DOCKER_CONTAINER=true
     networks:
       - monitor-net
     depends_on:

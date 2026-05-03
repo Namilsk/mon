@@ -432,7 +432,7 @@
                 const isOnline = info.online;
                 
                 return `
-                    <div class="node-card">
+                    <div class="node-card" onclick="location.href='/node/${id}'" style="cursor: pointer;">
                         <div class="node-header">
                             <span class="node-name">${id}</span>
                             <span style="display: flex; align-items: center; gap: 0.75rem;">
@@ -440,7 +440,7 @@
                                     <span class="status ${isOnline ? 'online' : 'offline'}"></span>
                                     ${isOnline ? 'online' : 'offline'}
                                 </span>
-                                <button class="settings-btn" onclick="openSettings('${id}')">Settings</button>
+                                <button class="settings-btn" onclick="event.stopPropagation(); openSettings('${id}')">Settings</button>
                             </span>
                         </div>
                         <div class="metrics">
