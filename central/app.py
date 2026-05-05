@@ -339,7 +339,7 @@ def receive_metrics():
         load_avg_1=data.get('load_avg', {}).get('1min'),
         load_avg_5=data.get('load_avg', {}).get('5min'),
         load_avg_15=data.get('load_avg', {}).get('15min'),
-        boot_time=data.get('boot_time')
+        boot_time=datetime.fromisoformat(data.get('boot_time')) if data.get('boot_time') else None
     )
     db.session.add(metric)
     

@@ -28,7 +28,7 @@ echo ""
 
 # Run central server in background
 echo "[+] Starting central server..."
-python central/app.py &
+./venv/bin/python central/app.py &
 CENTRAL_PID=$!
 
 sleep 2
@@ -38,7 +38,7 @@ echo "[+] Starting node agent..."
 export NODE_ID=${NODE_ID:-local-node}
 export CENTRAL_URL=http://localhost:5000
 export POLL_INTERVAL=${POLL_INTERVAL:-5}
-python node/agent.py &
+./venv/bin/python node/agent.py &
 AGENT_PID=$!
 
 echo ""
