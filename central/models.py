@@ -1,10 +1,7 @@
 import os
 import hashlib
 from datetime import datetime, timedelta
-from flask_sqlalchemy import SQLAlchemy
-
-
-db = SQLAlchemy()
+from extensions import db
 
 
 class User(db.Model):
@@ -47,6 +44,7 @@ class Node(db.Model):
     __tablename__ = 'nodes'
 
     id = db.Column(db.String(100), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     hostname = db.Column(db.String(100))
     platform = db.Column(db.String(50))
     ip_address = db.Column(db.String(50))
@@ -56,6 +54,7 @@ class Node(db.Model):
     last_seen = db.Column(db.DateTime)
     config = db.Column(db.JSON, default=dict)
 
+    user = db.relationship('User', backref='nodes')
     metrics = db.relationship('Metric', backref='node', lazy='dynamic', cascade='all, delete-orphan')
     alerts = db.relationship('Alert', backref='node', lazy='dynamic', cascade='all, delete-orphan')
     processes = db.relationship('ProcessStat', backref='node', lazy='dynamic', cascade='all, delete-orphan')
@@ -204,4 +203,33 @@ class AlertConfig(db.Model):
             'disk_threshold': self.disk_threshold,
             'load_threshold': self.load_threshold,
             'enabled': self.enabled
+        }
+
+
+class ApiToken(db.Model):
+    __tablename__ = 'api_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    token = db.Column(db.String(256), unique=True, nullable=False)
+    name = db.Column(db.String(100))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_used_at = db.Column(db.DateTime)
+
+    user = db.relationship('User', backref='api_tokens')
+
+    @staticmethod
+    def generate_token():
+        import secrets
+        return secrets.token_urlsafe(32)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'token_preview': self.token[:8] + '...' if self.token else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_used_at': self.last_used_at.isoformat() if self.last_used_at else None
         }
